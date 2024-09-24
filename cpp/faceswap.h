@@ -1,9 +1,12 @@
 # ifndef FACESWAP
 # define FACESWAP
+#include "config.h"
 #include <fstream>
 #include <sstream>
 #include "opencv2/opencv.hpp"
-//#include <cuda_provider_factory.h>  ///如果使用cuda加速，需要取消注释
+#if defined(CUDA_BUILD)
+#include <cuda_provider_factory.h>
+#endif
 #include <onnxruntime_cxx_api.h>
 #include"utils.h"
 
@@ -33,6 +36,10 @@ private:
 	Ort::SessionOptions sessionOptions = Ort::SessionOptions();
 	std::vector<char*> input_names;
 	std::vector<char*> output_names;
+#if defined(USE_HIGHER_ONNX_RUNTIME_API_1_13_X)
+	std::vector<Ort::AllocatedStringPtr> input_names_ptrs;
+    std::vector<Ort::AllocatedStringPtr> output_names_ptrs;
+#endif
 	std::vector<std::vector<int64_t>> input_node_dims; // >=1 outputs
 	std::vector<std::vector<int64_t>> output_node_dims; // >=1 outputs
 	Ort::MemoryInfo memory_info_handler = Ort::MemoryInfo::CreateCpu(OrtDeviceAllocator, OrtMemTypeCPU);

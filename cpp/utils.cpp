@@ -46,7 +46,7 @@ vector<int> nms(vector<Bbox> boxes, vector<float> confidences, const float nms_t
     }
 
     vector<int> keep_inds;
-    for (int i = 0; i < isSuppressed.size(); i++)
+    for (size_t i = 0; i < isSuppressed.size(); i++)
     {
         if (!isSuppressed[i])
         {

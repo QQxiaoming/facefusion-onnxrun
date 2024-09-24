@@ -1,4 +1,5 @@
-#include"faceswap.h"
+#include "faceswap.h"
+#include "model_matrix.bin.h"
 
 using namespace cv;
 using namespace std;
@@ -6,32 +7,44 @@ using namespace Ort;
 
 SwapFace::SwapFace(string model_path)
 {
-    /// OrtStatus* status = OrtSessionOptionsAppendExecutionProvider_CUDA(sessionOptions, 0);   ///如果使用cuda加速，需要取消注释
+#if defined(CUDA_BUILD)
+    OrtStatus* status = OrtSessionOptionsAppendExecutionProvider_CUDA(sessionOptions, 0);
+#endif
 
     sessionOptions.SetGraphOptimizationLevel(ORT_ENABLE_BASIC);
-    /// std::wstring widestr = std::wstring(model_path.begin(), model_path.end());  ////windows写法
-    /// ort_session = new Session(env, widestr.c_str(), sessionOptions); ////windows写法
-    ort_session = new Session(env, model_path.c_str(), sessionOptions); ////linux写法
+#if defined(WINDOWS_BUILD)
+    std::wstring widestr = std::wstring(model_path.begin(), model_path.end());
+    ort_session = new Session(env, widestr.c_str(), sessionOptions);
+#endif
+#if defined(LINUX_BUILD) || defined(MACOS_BUILD)
+    ort_session = new Session(env, model_path.c_str(), sessionOptions);
+#endif
     
     size_t numInputNodes = ort_session->GetInputCount();
     size_t numOutputNodes = ort_session->GetOutputCount();
     AllocatorWithDefaultOptions allocator;
-    for (int i = 0; i < numInputNodes; i++)
+    for (size_t i = 0; i < numInputNodes; i++)
     {
-        input_names.push_back(ort_session->GetInputName(i, allocator)); /// 低版本onnxruntime的接口函数
-        ////AllocatedStringPtr input_name_Ptr = ort_session->GetInputNameAllocated(i, allocator);  /// 高版本onnxruntime的接口函数
-        ////input_names.push_back(input_name_Ptr.get()); /// 高版本onnxruntime的接口函数
+    #if defined(USE_HIGHER_ONNX_RUNTIME_API_1_13_X)
+        input_names_ptrs.push_back(ort_session->GetInputNameAllocated(i, allocator));
+        input_names.push_back(input_names_ptrs.back().get());
+    #else
+        input_names.push_back(ort_session->GetInputName(i, allocator)); 
+    #endif
         Ort::TypeInfo input_type_info = ort_session->GetInputTypeInfo(i);
         auto input_tensor_info = input_type_info.GetTensorTypeAndShapeInfo();
         auto input_dims = input_tensor_info.GetShape();
         input_node_dims.push_back(input_dims);
     }
     
-    for (int i = 0; i < numOutputNodes; i++)
+    for (size_t i = 0; i < numOutputNodes; i++)
     {
-        output_names.push_back(ort_session->GetOutputName(i, allocator)); /// 低版本onnxruntime的接口函数
-        ////AllocatedStringPtr output_name_Ptr= ort_session->GetInputNameAllocated(i, allocator);
-        ////output_names.push_back(output_name_Ptr.get()); /// 高版本onnxruntime的接口函数
+    #if defined(USE_HIGHER_ONNX_RUNTIME_API_1_13_X)
+        output_names_ptrs.push_back(ort_session->GetOutputNameAllocated(i, allocator));
+        output_names.push_back(output_names_ptrs.back().get());
+    #else
+        output_names.push_back(ort_session->GetOutputName(i, allocator)); 
+    #endif
         Ort::TypeInfo output_type_info = ort_session->GetOutputTypeInfo(i);
         auto output_tensor_info = output_type_info.GetTensorTypeAndShapeInfo();
         auto output_dims = output_tensor_info.GetShape();
@@ -43,11 +56,7 @@ SwapFace::SwapFace(string model_path)
     
     const int length = this->len_feature*this->len_feature;
     this->model_matrix = new float[length];
-    cout<<"start read model_matrix.bin"<<endl;
-    FILE* fp = fopen("model_matrix.bin", "rb");
-    fread(this->model_matrix, sizeof(float), length, fp);//导入数据
-    fclose(fp);//关闭文件
-    cout<<"read model_matrix.bin finish"<<endl;
+    memcpy(this->model_matrix,model_matrix_bin,sizeof(float)*length);
 
     ////在这里就直接定义了，没有像python程序里的那样normed_template = TEMPLATES.get(template) * crop_size
     this->normed_template.emplace_back(Point2f(46.29459968, 51.69629952));
