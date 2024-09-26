@@ -4,10 +4,10 @@
 #include <fstream>
 #include <sstream>
 #include "opencv2/opencv.hpp"
-#if defined(CUDA_BUILD)
-#include <cuda_provider_factory.h>
-#endif
 #include <onnxruntime_cxx_api.h>
+#if defined(COREML_BUILD)
+#include <coreml_provider_factory.h>
+#endif 
 #include"utils.h"
 
 

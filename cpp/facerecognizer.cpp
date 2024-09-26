@@ -7,7 +7,15 @@ using namespace Ort;
 FaceEmbdding::FaceEmbdding(string model_path)
 {
 #if defined(CUDA_BUILD)
-    OrtStatus* status = OrtSessionOptionsAppendExecutionProvider_CUDA(sessionOptions, 0);
+    try {
+        OrtCUDAProviderOptions cuda_options;
+        sessionOptions.AppendExecutionProvider_CUDA(cuda_options);
+    } catch (const Ort::Exception& e) {
+        std::cerr << "Error appending CUDA execution provider: " << e.what() << std::endl;
+    }
+#endif
+#if defined(COREML_BUILD)
+    OrtSessionOptionsAppendExecutionProvider_CoreML(sessionOptions,COREML_FLAG_ENABLE_ON_SUBGRAPH);
 #endif
 
     sessionOptions.SetGraphOptimizationLevel(ORT_ENABLE_BASIC);
